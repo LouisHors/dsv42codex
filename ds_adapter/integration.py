@@ -10,6 +10,8 @@ from typing import Any
 from urllib.parse import quote, urlencode
 import webbrowser
 
+import sys
+
 try:
     import winreg
 except ImportError:  # pragma: no cover - non-Windows fallback
@@ -245,56 +247,24 @@ def build_cc_provider_deeplink(adapter_model: str, api_key: str | None = None) -
 
 
 def detect_cc_protocol_command() -> str | None:
-    if winreg is None:
-        return None
+    if winreg is not None:
+        candidates = (
+            (winreg.HKEY_CURRENT_USER, r"Software\Classes\ccswitch\shell\open\command"),
+            (winreg.HKEY_CLASSES_ROOT, r"ccswitch\shell\open\command"),
+        )
+        for root, sub_key in candidates:
+            try:
+                with winreg.OpenKey(root, sub_key) as handle:
+                    value, _ = winreg.QueryValueEx(handle, None)
+            except OSError:
+                continue
+            if isinstance(value, str) and value.strip():
+                return value
 
-    candidates = (
-        (winreg.HKEY_CURRENT_USER, r"Software\Classes\ccswitch\shell\open\command"),
-        (winreg.HKEY_CLASSES_ROOT, r"ccswitch\shell\open\command"),
-    )
-    for root, sub_key in candidates:
-        try:
-            with winreg.OpenKey(root, sub_key) as handle:
-                value, _ = winreg.QueryValueEx(handle, None)
-        except OSError:
-            continue
-        if isinstance(value, str) and value.strip():
-            return value
+    if sys.platform == "darwin":
+        return "macos:webbrowser"
+
     return None
-
-
-def launch_cc_provider_import(adapter_model: str, api_key: str | None = None) -> dict[str, Any]:
-    deeplink = build_cc_provider_deeplink(adapter_model, api_key)
-    protocol_command = detect_cc_protocol_command()
-    if not protocol_command:
-        return {
-            "ok": False,
-            "message": "未检测到 CC Switch 的 ccswitch:// 协议注册。",
-            "deeplink": deeplink,
-        }
-
-    try:
-        if hasattr(os, "startfile"):
-            os.startfile(deeplink)  # type: ignore[attr-defined]
-        else:  # pragma: no cover - Windows desktop is the main target
-            launched = webbrowser.open(deeplink)
-            if not launched:
-                raise OSError("webbrowser.open returned false")
-    except OSError as exc:
-        return {
-            "ok": False,
-            "message": f"唤起 CC Switch 失败: {exc}",
-            "deeplink": deeplink,
-            "protocol_command": protocol_command,
-        }
-
-    return {
-        "ok": True,
-        "message": "已唤起 CC Switch，请在 CC 弹窗中确认导入。",
-        "deeplink": deeplink,
-        "protocol_command": protocol_command,
-        "requires_confirmation": True,
-    }
 
 
 def _replace_or_insert_top_level(text: str, key: str, value: str) -> str:
@@ -419,7 +389,7 @@ def launch_cc_provider_import(adapter_model: str, api_key: str | None = None) ->
     try:
         if hasattr(os, "startfile"):
             os.startfile(deeplink)  # type: ignore[attr-defined]
-        else:  # pragma: no cover - Windows desktop is the main target
+        else:
             launched = webbrowser.open(deeplink)
             if not launched:
                 raise OSError("webbrowser.open returned false")

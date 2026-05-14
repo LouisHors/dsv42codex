@@ -4,13 +4,24 @@ Minimal Python adapter for:
 
 `Codex -> cc-switch -> this adapter -> DeepSeek`
 
+Supports **Windows** and **macOS**.
+
 ## Window app
 
 If you want a desktop window instead of hand-editing env vars, start:
 
+**Windows:**
 ```powershell
 .\.venv\Scripts\python.exe .\window_app.py
 ```
+
+**macOS:**
+```bash
+source .venv/bin/activate
+python window_app.py
+```
+
+Or double-click `启动中转工具.command` on macOS / `启动中转工具.bat` on Windows.
 
 The window lets you:
 
@@ -43,8 +54,14 @@ Then it extracts the version number from the matching file name or link text and
 
 Configure the update source URL with environment variable:
 
+**Windows:**
 ```powershell
 $env:DSV4_UPDATE_SOURCE_URL = "https://your-pan-root-page"
+```
+
+**macOS:**
+```bash
+export DSV4_UPDATE_SOURCE_URL="https://your-pan-root-page"
 ```
 
 If this variable is empty, startup update check is skipped.
@@ -63,6 +80,8 @@ The first version keeps the scope intentionally small:
 - synthesize `responses` SSE events when `stream=true`
 
 ## Quick start
+
+### Windows
 
 1. Create a virtual environment:
 
@@ -97,6 +116,42 @@ $env:UPSTREAM_API_KEY = "your-upstream-key"
 .\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 9468
 ```
 
+### macOS
+
+1. Create a virtual environment:
+
+```bash
+python3 -m venv .venv
+```
+
+2. Install dependencies:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. Set upstream environment variables:
+
+```bash
+export UPSTREAM_BASE_URL="https://api.deepseek.com"
+export UPSTREAM_CHAT_PATH="/chat/completions"
+export UPSTREAM_MODEL="deepseek-v4-pro"
+export ADAPTER_MODEL_IDS="deepseek-v4-pro"
+```
+
+Optional:
+
+```bash
+export UPSTREAM_API_KEY="your-upstream-key"
+```
+
+4. Start the adapter:
+
+```bash
+python -m uvicorn main:app --host 127.0.0.1 --port 9468
+```
+
 ## Point cc-switch at the adapter
 
 Use the window app's `导入到 CC` button to launch CC Switch's official `ccswitch://v1/import?...` flow.
@@ -107,16 +162,25 @@ The imported local provider points to:
 
 CC Switch still shows its own confirmation dialog, which is expected. After confirming there, keep Codex pointed at cc-switch as usual.
 
+On macOS, the `ccswitch://` deeplink is opened via the system's default URL handler (`webbrowser.open`). Make sure CC Switch is installed and the protocol is registered.
+
 ## Smoke checks
 
 List models:
 
+**Windows:**
 ```powershell
 Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:9468/v1/models" | Select-Object -ExpandProperty Content
 ```
 
+**macOS:**
+```bash
+curl http://127.0.0.1:9468/v1/models
+```
+
 Create a non-stream response:
 
+**Windows:**
 ```powershell
 $body = @{
   model = "deepseek-v4-pro"
@@ -126,16 +190,30 @@ $body = @{
 Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:9468/v1/responses" -Method POST -ContentType "application/json" -Body $body | Select-Object -ExpandProperty Content
 ```
 
+**macOS:**
+```bash
+curl http://127.0.0.1:9468/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{"model":"deepseek-v4-pro","input":"Say hello."}'
+```
+
 Run tests:
 
+**Windows:**
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+**macOS:**
+```bash
+python -m unittest discover -s tests -v
 ```
 
 ## Notes
 
 - DeepSeek official docs currently document OpenAI-compatible `chat/completions`, not `/responses`, so this adapter keeps translating Codex `responses` calls into upstream `chat/completions`.
 - CC Switch import now uses its official deeplink interface instead of writing CC config files or the CC database directly.
+- On macOS, the `ccswitch://` protocol is opened via `webbrowser.open()` which uses the system's `open` command. If CC Switch is not installed, macOS will show an error dialog.
 - The adapter maps Codex-style higher reasoning values to DeepSeek-compatible `reasoning_effort` values. For example, `xhigh` is translated to `max`.
 - `stream=true` is synthesized from a completed upstream chat response in this first version.
 - function tools are translated to chat-completions tools directly.

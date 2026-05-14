@@ -26,6 +26,8 @@ from ds_adapter.defaults import (
     DEFAULT_DEEPSEEK_MODEL,
     DEEPSEEK_MODEL_OPTIONS,
 )
+import platform
+
 from ds_adapter.integration import (
     FIXED_CHAT_PATH,
     FIXED_HOST,
@@ -55,6 +57,17 @@ UPDATE_FILE_KEYWORD = "DSV4本地中转站"
 DEFAULT_UPDATE_SOURCE_URL = "https://pan.quark.cn/s/0fffc57f9521#/list/share/07a9d95ccefd4fb9a9c9c82b41e8b6dd"
 UPDATE_SOURCE_URL = os.getenv("DSV4_UPDATE_SOURCE_URL", DEFAULT_UPDATE_SOURCE_URL).strip()
 UPDATE_TIMEOUT_SECONDS = 15
+
+_platform = platform.system()
+if _platform == "Darwin":
+    UI_FONT = "PingFang SC"
+    MONO_FONT = "Menlo"
+elif _platform == "Windows":
+    UI_FONT = "Microsoft YaHei UI"
+    MONO_FONT = "Consolas"
+else:
+    UI_FONT = "sans-serif"
+    MONO_FONT = "monospace"
 
 TEXT = {
     "title": APP_TITLE,
@@ -391,11 +404,11 @@ class AdapterWindow:
         style = ttk.Style(self.root)
         style.theme_use("clam")
         style.configure("Card.TFrame", background="#fffdf8")
-        style.configure("Accent.TButton", padding=(16, 10), font=("Microsoft YaHei UI", 10, "bold"))
-        style.configure("TButton", padding=(12, 10), font=("Microsoft YaHei UI", 10))
-        style.configure("TLabel", background="#fffdf8", foreground="#1f2937", font=("Microsoft YaHei UI", 10))
-        style.configure("Header.TLabel", background="#fffdf8", foreground="#111827", font=("Microsoft YaHei UI", 18, "bold"))
-        style.configure("Muted.TLabel", background="#fffdf8", foreground="#5b6472", font=("Microsoft YaHei UI", 10))
+        style.configure("Accent.TButton", padding=(16, 10), font=(UI_FONT, 10, "bold"))
+        style.configure("TButton", padding=(12, 10), font=(UI_FONT, 10))
+        style.configure("TLabel", background="#fffdf8", foreground="#1f2937", font=(UI_FONT, 10))
+        style.configure("Header.TLabel", background="#fffdf8", foreground="#111827", font=(UI_FONT, 18, "bold"))
+        style.configure("Muted.TLabel", background="#fffdf8", foreground="#5b6472", font=(UI_FONT, 10))
 
         outer = ttk.Frame(self.root, style="Card.TFrame", padding=18)
         outer.pack(fill="both", expand=True, padx=18, pady=18)
@@ -409,7 +422,7 @@ class AdapterWindow:
             log_card,
             wrap="word",
             height=13,
-            font=("Consolas", 10),
+            font=(MONO_FONT, 10),
             bg="#17212b",
             fg="#ecf4ff",
             insertbackground="#ecf4ff",
