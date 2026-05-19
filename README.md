@@ -1,221 +1,142 @@
-# DSV4本地中转工具1.0
+# DSV4 本地中转工具
 
-Minimal Python adapter for:
+DSV4 Local Adapter
 
-`Codex -> cc-switch -> this adapter -> DeepSeek`
+一个面向中文开发者的本地适配器，用来把 Codex 经由 cc-switch 发出的 OpenAI `responses` 请求，转成 DeepSeek 兼容的 `chat/completions` 请求。
 
-Supports **Windows** and **macOS**.
+A local adapter for Chinese-speaking developers that converts OpenAI-style `responses` requests from Codex via cc-switch into DeepSeek-compatible `chat/completions` requests.
 
-## Window app
+请求链路 / Request flow:
 
-If you want a desktop window instead of hand-editing env vars, start:
+`Codex -> cc-switch -> 本地适配器 / local adapter -> DeepSeek`
 
-**Windows:**
-```powershell
-.\.venv\Scripts\python.exe .\window_app.py
-```
+支持 Windows 和 macOS。
 
-**macOS:**
-```bash
-source .venv/bin/activate
-python window_app.py
-```
+Supports Windows and macOS.
 
-Or double-click `启动中转工具.command` on macOS / `启动中转工具.bat` on Windows.
+## 功能简介 / Features
 
-The window lets you:
+- 提供本地 OpenAI 风格接口，默认地址为 `http://127.0.0.1:9468/v1`
+- Exposes a local OpenAI-style endpoint at `http://127.0.0.1:9468/v1`
+- 将 `/v1/responses` 翻译为 DeepSeek `chat/completions`
+- Translates `/v1/responses` into DeepSeek `chat/completions`
+- 提供桌面 GUI，便于填写上游配置、测试连通性和导入 CC Switch
+- Includes a desktop GUI for upstream config, connectivity checks, and CC Switch import
+- 支持启动时自动安装依赖，降低首次使用门槛
+- Installs dependencies automatically on first launch
 
-- fill only the upstream base URL, upstream model, and optional API key
-- start or stop the local adapter on fixed local address `http://127.0.0.1:9468/v1`
-- test the upstream connection
-- one-click launch the official CC Switch import flow for the local provider
-- apply Codex config directly
-- check updates when the app starts, compare versions by scanning the configured download page, and show a download link when a newer package is found
-
-Defaults now follow the current DeepSeek official docs:
-
-- upstream base URL: `https://api.deepseek.com`
-- upstream endpoint path: `/chat/completions`
-- default model: `deepseek-v4-pro`
-
-The GUI stores normal fields in `window_config.json`, including the upstream API key.
-
-## Update check
-
-The desktop app version is currently:
-
-`DSV4本地中转工具1.0`
-
-When the window starts, it can open a configured download page, scan the root page for entries containing:
-
-`DSV4本地中转站`
-
-Then it extracts the version number from the matching file name or link text and compares it with the current version. If it finds a higher version, it shows a prompt and exposes the download link so the user can download the update manually.
-
-Configure the update source URL with environment variable:
-
-**Windows:**
-```powershell
-$env:DSV4_UPDATE_SOURCE_URL = "https://your-pan-root-page"
-```
-
-**macOS:**
-```bash
-export DSV4_UPDATE_SOURCE_URL="https://your-pan-root-page"
-```
-
-If this variable is empty, startup update check is skipped.
-
-The adapter exposes:
-
-- `GET /v1/models`
-- `POST /v1/responses`
-- `POST /v1/chat/completions` (non-stream passthrough for debugging)
-
-The first version keeps the scope intentionally small:
-
-- accept OpenAI-style `responses` requests
-- translate them to upstream `chat/completions`
-- wrap the upstream answer back into a `responses` object
-- synthesize `responses` SSE events when `stream=true`
-
-## Quick start
-
-### Windows
-
-1. Create a virtual environment:
-
-```powershell
-python -m venv .venv
-```
-
-2. Install dependencies:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-3. Set upstream environment variables:
-
-```powershell
-$env:UPSTREAM_BASE_URL = "https://api.deepseek.com"
-$env:UPSTREAM_CHAT_PATH = "/chat/completions"
-$env:UPSTREAM_MODEL = "deepseek-v4-pro"
-$env:ADAPTER_MODEL_IDS = "deepseek-v4-pro"
-```
-
-Optional:
-
-```powershell
-$env:UPSTREAM_API_KEY = "your-upstream-key"
-```
-
-4. Start the adapter:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 9468
-```
+## 快速启动 / Quick Start
 
 ### macOS
 
-1. Create a virtual environment:
+双击 `启动中转工具.command`。
 
-```bash
-python3 -m venv .venv
+Double-click `启动中转工具.command`.
+
+### Windows
+
+双击 `启动中转工具.bat`。
+
+Double-click `启动中转工具.bat`.
+
+启动脚本会自动完成以下操作：
+
+The launcher scripts automatically:
+
+1. 创建 `src/.venv` / Create `src/.venv`
+2. 安装 `src/requirements.txt` 中的依赖 / Install dependencies from `src/requirements.txt`
+3. 启动桌面 GUI / Start the desktop GUI
+
+首次运行需要联网安装依赖。
+
+The first launch requires network access to install dependencies.
+
+## GUI 功能 / GUI Capabilities
+
+- 配置上游 Base URL、模型名和 API Key
+- Configure upstream Base URL, model name, and API key
+- 启动或停止本地中转服务
+- Start or stop the local adapter service
+- 测试 DeepSeek 上游是否连通
+- Test upstream DeepSeek connectivity
+- 一键唤起 CC Switch 导入
+- Trigger CC Switch import with one click
+- 直接写入 Codex 配置
+- Apply Codex configuration directly
+
+默认上游配置 / Default upstream settings:
+
+- Base URL: `https://api.deepseek.com`
+- Path: `/chat/completions`
+- Model: `deepseek-v4-pro`
+
+## 对外接口 / API Endpoints
+
+- `GET /health`
+- `GET /v1/models`
+- `POST /v1/responses`
+- `POST /v1/chat/completions`
+
+其中 `/v1/responses` 是主要入口。
+
+`/v1/responses` is the main entry point.
+
+## 项目结构 / Project Layout
+
+```text
+启动中转工具.command    macOS 启动脚本 / macOS launcher
+启动中转工具.bat        Windows 启动脚本 / Windows launcher
+src/                    源码与虚拟环境目录 / source code and virtual environment
+tests/                  单元测试 / unit tests
+build/                  打包配置 / build configs
 ```
 
-2. Install dependencies:
+## 开发说明 / Development
+
+### 本地运行 GUI / Run the GUI locally
+
+macOS:
 
 ```bash
+cd src
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python window_app.py
 ```
 
-3. Set upstream environment variables:
+Windows:
 
-```bash
-export UPSTREAM_BASE_URL="https://api.deepseek.com"
-export UPSTREAM_CHAT_PATH="/chat/completions"
-export UPSTREAM_MODEL="deepseek-v4-pro"
-export ADAPTER_MODEL_IDS="deepseek-v4-pro"
-```
-
-Optional:
-
-```bash
-export UPSTREAM_API_KEY="your-upstream-key"
-```
-
-4. Start the adapter:
-
-```bash
-python -m uvicorn main:app --host 127.0.0.1 --port 9468
-```
-
-## Point cc-switch at the adapter
-
-Use the window app's `导入到 CC` button to launch CC Switch's official `ccswitch://v1/import?...` flow.
-
-The imported local provider points to:
-
-`http://127.0.0.1:9468/v1`
-
-CC Switch still shows its own confirmation dialog, which is expected. After confirming there, keep Codex pointed at cc-switch as usual.
-
-On macOS, the `ccswitch://` deeplink is opened via the system's default URL handler (`webbrowser.open`). Make sure CC Switch is installed and the protocol is registered.
-
-## Smoke checks
-
-List models:
-
-**Windows:**
 ```powershell
-Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:9468/v1/models" | Select-Object -ExpandProperty Content
+cd src
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python window_app.py
 ```
 
-**macOS:**
+### 运行测试 / Run tests
+
+推荐使用项目虚拟环境执行。
+
+Using the project virtual environment is recommended.
+
+macOS:
+
 ```bash
-curl http://127.0.0.1:9468/v1/models
+src/.venv/bin/python -m unittest discover -s tests -v
 ```
 
-Create a non-stream response:
+Windows:
 
-**Windows:**
 ```powershell
-$body = @{
-  model = "deepseek-v4-pro"
-  input = "Say hello."
-} | ConvertTo-Json
-
-Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:9468/v1/responses" -Method POST -ContentType "application/json" -Body $body | Select-Object -ExpandProperty Content
+src\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-**macOS:**
-```bash
-curl http://127.0.0.1:9468/v1/responses \
-  -H "Content-Type: application/json" \
-  -d '{"model":"deepseek-v4-pro","input":"Say hello."}'
-```
+## 说明 / Notes
 
-Run tests:
-
-**Windows:**
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-```
-
-**macOS:**
-```bash
-python -m unittest discover -s tests -v
-```
-
-## Notes
-
-- DeepSeek official docs currently document OpenAI-compatible `chat/completions`, not `/responses`, so this adapter keeps translating Codex `responses` calls into upstream `chat/completions`.
-- CC Switch import now uses its official deeplink interface instead of writing CC config files or the CC database directly.
-- On macOS, the `ccswitch://` protocol is opened via `webbrowser.open()` which uses the system's `open` command. If CC Switch is not installed, macOS will show an error dialog.
-- The adapter maps Codex-style higher reasoning values to DeepSeek-compatible `reasoning_effort` values. For example, `xhigh` is translated to `max`.
-- `stream=true` is synthesized from a completed upstream chat response in this first version.
-- function tools are translated to chat-completions tools directly.
-- non-function tools are wrapped into a single-string function schema so the chain can be tested earlier.
-- if the upstream model does not support tool calling reliably, Codex may connect but still behave poorly during real tool use.
+- DeepSeek 当前主要兼容 `chat/completions`，本项目负责把 `responses` 调用做适配转换
+- DeepSeek currently mainly supports `chat/completions`, and this project adapts `responses` calls to that interface
+- CC Switch 导入通过官方 deeplink 完成，不直接改写其数据库
+- CC Switch integration uses the official deeplink flow instead of editing its database directly
+- GUI 配置文件位于 `src/window_config.json`
+- GUI runtime config is stored at `src/window_config.json`

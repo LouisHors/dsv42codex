@@ -6,7 +6,7 @@ __pycache__/
 .playwright-mcp/
 .pytest_cache/
 
-build/
+build/dist/
 dist/
 
 adapter_request_trace.jsonl
@@ -14,5 +14,5 @@ _cc_strings_scan.txt
 window_config.json
 .env
 
-成品/*.exe
-成品/*.zip
+build/成品/*.exe
+build/成品/*.zip

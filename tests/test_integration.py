@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 import base64
 import json
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from ds_adapter.integration import (
     PROVIDER_KEY,

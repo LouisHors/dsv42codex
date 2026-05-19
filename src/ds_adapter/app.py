@@ -19,7 +19,7 @@ from .translator import (
     response_request_to_chat_request,
 )
 
-TRACE_LOG_PATH = Path(__file__).resolve().parents[1] / "adapter_request_trace.jsonl"
+TRACE_LOG_PATH = Path(__file__).resolve().parents[2] / "adapter_request_trace.jsonl"
 
 DEEPSEEK_ERROR_GUIDE: dict[int, dict[str, str]] = {
     400: {

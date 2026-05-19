@@ -1,11 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
+# PyInstaller spec (debug console) — 从项目根目录运行:
+#   pyinstaller build/DSV4本地中转工具1.0-debug.spec
 
+import os
+_src = os.path.join(SPECPATH, '..', 'src')
 
 a = Analysis(
-    ['D:\\AI\\ds中转\\window_app.py'],
-    pathex=[],
+    [os.path.join(_src, 'window_app.py')],
+    pathex=[_src],
     binaries=[],
-    datas=[('D:\\AI\\ds中转\\ds_adapter', 'ds_adapter')],
+    datas=[(os.path.join(_src, 'ds_adapter'), 'ds_adapter')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,14 +26,14 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='DSV4本地中转工具1.0',
+    name='DSV4本地中转工具1.0-debug',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
