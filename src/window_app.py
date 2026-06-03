@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import html
 import json
 import os
 from pathlib import Path
 import queue
-import re
 import socket
 import sys
 import threading
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from urllib.parse import parse_qs, urljoin, urlparse
 import webbrowser
 
 import httpx
@@ -52,11 +49,6 @@ INSTANCE_PORT = 19468
 APP_NAME = "DSV4本地中转工具"
 APP_VERSION = "1.0"
 APP_TITLE = f"{APP_NAME}{APP_VERSION}"
-APP_VERSION_TUPLE = tuple(int(part) for part in APP_VERSION.split("."))
-UPDATE_FILE_KEYWORD = "DSV4本地中转站"
-DEFAULT_UPDATE_SOURCE_URL = "https://pan.quark.cn/s/0fffc57f9521#/list/share/07a9d95ccefd4fb9a9c9c82b41e8b6dd"
-UPDATE_SOURCE_URL = os.getenv("DSV4_UPDATE_SOURCE_URL", DEFAULT_UPDATE_SOURCE_URL).strip()
-UPDATE_TIMEOUT_SECONDS = 15
 
 _platform = platform.system()
 if _platform == "Darwin":
@@ -128,235 +120,7 @@ TEXT = {
     "service_ready": "\u672c\u5730\u670d\u52a1\u5df2\u5c31\u7eea: ",
     "service_external": "\u68c0\u6d4b\u5230\u5df2\u6709\u672c\u5730\u670d\u52a1\u5728\u8fd0\u884c: ",
     "stop_external_denied": "\u5f53\u524d\u670d\u52a1\u4e0d\u662f\u7531\u672c\u7a97\u53e3\u542f\u52a8\u7684\uff0c\u4e0d\u63d0\u4f9b\u505c\u6b62\u3002",
-    "version_label": f"\u5f53\u524d\u7248\u672c\uff1a{APP_TITLE}",
-    "update_title": "\u7248\u672c\u66f4\u65b0",
-    "update_status_idle": "\u66f4\u65b0\u72b6\u6001\uff1a\u672a\u68c0\u67e5",
-    "update_status_missing_url": "\u66f4\u65b0\u72b6\u6001\uff1a\u672a\u914d\u7f6e\u66f4\u65b0\u6e90",
-    "update_status_checking": "\u66f4\u65b0\u72b6\u6001\uff1a\u6b63\u5728\u68c0\u67e5...",
-    "update_status_latest": "\u66f4\u65b0\u72b6\u6001\uff1a\u5f53\u524d\u5df2\u662f\u6700\u65b0\u7248\u672c",
-    "update_status_found": "\u66f4\u65b0\u72b6\u6001\uff1a\u53d1\u73b0\u65b0\u7248\u672c ",
-    "update_status_failed": "\u66f4\u65b0\u72b6\u6001\uff1a\u68c0\u67e5\u5931\u8d25",
-    "update_status_no_entry": "\u66f4\u65b0\u72b6\u6001\uff1a\u66f4\u65b0\u6e90\u672a\u53d1\u73b0\u7248\u672c\u6587\u4ef6",
-    "check_update": "\u68c0\u67e5\u66f4\u65b0",
-    "open_update_link": "\u6253\u5f00\u4e0b\u8f7d\u9875",
-    "update_not_configured": "\u672a\u914d\u7f6e\u66f4\u65b0\u6e90 URL\uff0c\u5df2\u8df3\u8fc7\u81ea\u52a8\u68c0\u67e5\u3002",
-    "update_none_found": "\u672a\u5728\u66f4\u65b0\u6e90\u4e2d\u627e\u5230\u5305\u542b\u201cDSV4\u672c\u5730\u4e2d\u8f6c\u7ad9\u201d\u7684\u7248\u672c\u6587\u4ef6\u3002",
-    "update_available": "\u53d1\u73b0\u65b0\u7248\u672c",
-    "update_latest": "\u5df2\u662f\u6700\u65b0\u7248\u672c",
-    "update_check_failed": "\u68c0\u67e5\u66f4\u65b0\u5931\u8d25",
-    "update_open_failed": "\u6253\u5f00\u4e0b\u8f7d\u9875\u5931\u8d25",
-    "update_link_missing": "\u6682\u672a\u83b7\u53d6\u5230\u53ef\u7528\u7684\u4e0b\u8f7d\u94fe\u63a5\u3002",
-    "update_check_running": "\u6b63\u5728\u68c0\u67e5\u66f4\u65b0\uff0c\u8bf7\u7a0d\u5019\u3002",
-    "update_log_latest": "\u66f4\u65b0\u68c0\u67e5\u5b8c\u6210\uff0c\u5f53\u524d\u5df2\u662f\u6700\u65b0\u7248\u672c\u3002",
-    "update_log_found": "\u53d1\u73b0\u65b0\u7248\u672c\uff1a",
-    "update_log_open": "\u5df2\u5c1d\u8bd5\u6253\u5f00\u4e0b\u8f7d\u9875\uff1a",
-    "update_prompt": "\u5f53\u524d\u7248\u672c\uff1a{current}\n\u6700\u65b0\u7248\u672c\uff1a{latest}\n\u4e0b\u8f7d\u94fe\u63a5\uff1a{url}\n\n\u94fe\u63a5\u5df2\u5199\u5165\u65e5\u5fd7{clipboard_suffix}",
-    "update_clipboard_suffix": "\uff0c\u5e76\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f",
 }
-
-
-def _version_sort_key(version: tuple[int, ...], width: int = 8) -> tuple[int, ...]:
-    return version + (0,) * max(0, width - len(version))
-
-
-def _extract_version_tuple(text: str) -> tuple[int, ...] | None:
-    match = re.search(r"(?i)\bv?(\d+(?:\.\d+)*)\b", text)
-    if not match:
-        return None
-    return tuple(int(part) for part in match.group(1).split("."))
-
-
-def _format_version(version: tuple[int, ...]) -> str:
-    return ".".join(str(part) for part in version)
-
-
-def _clean_html_text(value: str) -> str:
-    no_tags = re.sub(r"<[^>]+>", " ", value)
-    return re.sub(r"\s+", " ", html.unescape(no_tags)).strip()
-
-
-def _candidate_download_url(source_url: str, href: str) -> str:
-    resolved = urljoin(source_url, html.unescape(href or "").strip())
-    if not resolved or resolved.startswith(("javascript:", "mailto:", "#")):
-        return source_url
-    return resolved
-
-
-def _parse_quark_share_pwd_id(source_url: str) -> str | None:
-    parsed = urlparse(source_url)
-    host = parsed.netloc.lower()
-    if "pan.quark.cn" not in host:
-        return None
-
-    match = re.search(r"/s/([A-Za-z0-9]+)", parsed.path)
-    if match:
-        return match.group(1)
-
-    fragment = parsed.fragment or ""
-    if fragment:
-        fragment_path = fragment.split("?", 1)[0]
-        match = re.search(r"/s/([A-Za-z0-9]+)", fragment_path)
-        if match:
-            return match.group(1)
-        query = parse_qs(fragment.split("?", 1)[1]) if "?" in fragment else {}
-        pwd_id = query.get("pwd_id")
-        if pwd_id and pwd_id[0].strip():
-            return pwd_id[0].strip()
-    return None
-
-
-def _parse_quark_share_dir_id(source_url: str) -> str:
-    parsed = urlparse(source_url)
-    fragment = parsed.fragment or ""
-    fragment_path = fragment.split("?", 1)[0]
-    match = re.search(r"/list/share/([A-Za-z0-9]+)", fragment_path)
-    if match:
-        return match.group(1)
-
-    if "?" in fragment:
-        query = parse_qs(fragment.split("?", 1)[1])
-        pdir_fid = query.get("pdir_fid")
-        if pdir_fid and pdir_fid[0].strip():
-            return pdir_fid[0].strip()
-    return "0"
-
-
-def _extract_quark_files(payload: object) -> list[dict[str, str | tuple[int, ...]]]:
-    if not isinstance(payload, dict):
-        return []
-    data = payload.get("data")
-    if not isinstance(data, dict):
-        return []
-    items = data.get("list")
-    if not isinstance(items, list):
-        return []
-
-    candidates: list[dict[str, str | tuple[int, ...]]] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("file_name") or "").strip()
-        if UPDATE_FILE_KEYWORD not in name:
-            continue
-        version = _extract_version_tuple(name)
-        if version is None:
-            continue
-        candidates.append(
-            {
-                "version": version,
-                "version_text": _format_version(version),
-                "name": name,
-            }
-        )
-    return candidates
-
-
-def _find_latest_quark_candidate(source_url: str, client: httpx.Client) -> dict[str, str | tuple[int, ...]] | None:
-    pwd_id = _parse_quark_share_pwd_id(source_url)
-    if not pwd_id:
-        return None
-    pdir_fid = _parse_quark_share_dir_id(source_url)
-
-    token_url = "https://drive-h.quark.cn/1/clouddrive/share/sharepage/token"
-    token_params = {"pr": "ucpro", "fr": "pc", "uc_param_str": ""}
-    token_payload = {
-        "pwd_id": pwd_id,
-        "passcode": "",
-        "support_visit_limit_private_share": True,
-    }
-    token_response = client.post(token_url, params=token_params, json=token_payload)
-    token_response.raise_for_status()
-    token_json = token_response.json()
-    stoken = (
-        token_json.get("data", {}).get("stoken")
-        if isinstance(token_json, dict)
-        else None
-    )
-    if not isinstance(stoken, str) or not stoken.strip():
-        raise RuntimeError("未能从夸克分享页获取访问令牌。")
-
-    detail_url = "https://drive-h.quark.cn/1/clouddrive/share/sharepage/detail"
-    detail_params = {
-        "pr": "ucpro",
-        "fr": "pc",
-        "uc_param_str": "",
-        "ver": "2",
-        "pwd_id": pwd_id,
-        "stoken": stoken,
-        "pdir_fid": pdir_fid,
-        "force": "0",
-        "_page": "1",
-        "_size": "100",
-        "_fetch_banner": "1" if pdir_fid == "0" else "0",
-        "_fetch_share": "1" if pdir_fid == "0" else "0",
-        "fetch_relate_conversation": "1" if pdir_fid == "0" else "0",
-        "_fetch_total": "1",
-        "_sort": "file_type:asc,file_name:asc",
-    }
-    detail_response = client.get(detail_url, params=detail_params)
-    detail_response.raise_for_status()
-    detail_json = detail_response.json()
-    candidates = _extract_quark_files(detail_json)
-    if not candidates:
-        return None
-
-    best = max(candidates, key=lambda item: _version_sort_key(item["version"]))  # type: ignore[arg-type]
-    best["url"] = source_url
-    return best
-
-
-def _find_latest_version_candidate(page_text: str, source_url: str) -> dict[str, str | tuple[int, ...]] | None:
-    candidates: list[dict[str, str | tuple[int, ...]]] = []
-    seen: set[tuple[tuple[int, ...], str]] = set()
-
-    anchor_pattern = re.compile(r"""<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>""", re.IGNORECASE | re.DOTALL)
-    for href, inner_html in anchor_pattern.findall(page_text):
-        label = _clean_html_text(inner_html)
-        combined = f"{label} {href}"
-        if UPDATE_FILE_KEYWORD not in combined:
-            continue
-        version = _extract_version_tuple(combined)
-        if version is None:
-            continue
-        url = _candidate_download_url(source_url, href)
-        signature = (version, url)
-        if signature in seen:
-            continue
-        seen.add(signature)
-        candidates.append(
-            {
-                "version": version,
-                "version_text": _format_version(version),
-                "name": label or combined.strip(),
-                "url": url,
-            }
-        )
-
-    if not candidates:
-        for raw_line in page_text.splitlines():
-            line = _clean_html_text(raw_line)
-            if UPDATE_FILE_KEYWORD not in line:
-                continue
-            version = _extract_version_tuple(line)
-            if version is None:
-                continue
-            signature = (version, source_url)
-            if signature in seen:
-                continue
-            seen.add(signature)
-            candidates.append(
-                {
-                    "version": version,
-                    "version_text": _format_version(version),
-                    "name": line,
-                    "url": source_url,
-                }
-            )
-
-    if not candidates:
-        return None
-
-    return max(candidates, key=lambda item: _version_sort_key(item["version"]))  # type: ignore[arg-type]
 
 
 class AdapterWindow:
@@ -372,10 +136,6 @@ class AdapterWindow:
         self.server_thread: threading.Thread | None = None
         self.server_app = None
         self.log_queue: queue.Queue[str] = queue.Queue()
-        self.update_source_url = UPDATE_SOURCE_URL
-        self.latest_update_url: str | None = None
-        self.latest_update_version_text: str | None = None
-        self.update_check_in_progress = False
 
         self.upstream_base_url_var = tk.StringVar(value=DEFAULT_DEEPSEEK_BASE_URL)
         self.upstream_model_var = tk.StringVar(value=DEFAULT_DEEPSEEK_MODEL)
@@ -384,11 +144,6 @@ class AdapterWindow:
         self.test_prompt_var = tk.StringVar(value="\u8bf7\u56de\u590d ok")
         self.status_var = tk.StringVar(value=TEXT["default_status"])
         self.cc_status_var = tk.StringVar(value="\u6b63\u5728\u68c0\u67e5 CC \u5f53\u524d\u63a5\u7ba1\u72b6\u6001...")
-        self.version_var = tk.StringVar(value=TEXT["version_label"])
-        self.update_status_var = tk.StringVar(
-            value=TEXT["update_status_idle"] if self.update_source_url else TEXT["update_status_missing_url"]
-        )
-
         self._load_config()
         self._build_ui()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -396,7 +151,6 @@ class AdapterWindow:
         self.root.after(200, self._flush_logs)
         self.root.after(500, self._poll_process)
         self.root.after(700, self.ensure_server_running)
-        self.root.after(1200, self.check_updates_on_startup)
 
     def _build_ui(self) -> None:
         self.root.configure(bg="#efe7dc")
@@ -466,23 +220,6 @@ class AdapterWindow:
         ttk.Entry(path_card, textvariable=self.codex_config_path_var).grid(row=2, column=1, sticky="ew", padx=(12, 8), pady=(12, 0))
         ttk.Button(path_card, text=TEXT["select"], command=self.choose_codex_config).grid(row=2, column=2, sticky="e", pady=(12, 0))
         ttk.Button(path_card, text=TEXT["apply_codex"], command=self.apply_codex_import, style="Accent.TButton").grid(row=2, column=3, sticky="e", padx=(8, 0), pady=(12, 0))
-
-        update_card = ttk.Frame(outer, style="Card.TFrame", padding=18)
-        update_card.pack(fill="x", pady=(0, 12))
-        update_card.columnconfigure(1, weight=1)
-
-        ttk.Label(update_card, text=TEXT["update_title"]).grid(row=0, column=0, sticky="w")
-        ttk.Label(update_card, textvariable=self.version_var, style="Muted.TLabel").grid(row=0, column=1, sticky="w", padx=(12, 8))
-        ttk.Button(update_card, text=TEXT["check_update"], command=self.check_updates_manual).grid(row=0, column=2, sticky="e")
-        ttk.Button(update_card, text=TEXT["open_update_link"], command=self.open_update_link).grid(row=0, column=3, sticky="e", padx=(8, 0))
-
-        ttk.Label(update_card, textvariable=self.update_status_var, style="Muted.TLabel").grid(
-            row=1,
-            column=0,
-            columnspan=4,
-            sticky="w",
-            pady=(12, 0),
-        )
 
         action_card = ttk.Frame(outer, style="Card.TFrame", padding=18)
         action_card.pack(fill="x", pady=(0, 12))
@@ -751,34 +488,6 @@ class AdapterWindow:
         webbrowser.open(url)
         self.log(TEXT["open_browser_log"] + url)
 
-    def check_updates_on_startup(self) -> None:
-        if not self.update_source_url:
-            self.update_status_var.set(TEXT["update_status_missing_url"])
-            self.log(TEXT["update_not_configured"])
-            return
-        self._start_update_check(notify_no_update=False, show_errors=False, show_available_dialog=True)
-
-    def check_updates_manual(self) -> None:
-        if not self.update_source_url:
-            self.update_status_var.set(TEXT["update_status_missing_url"])
-            messagebox.showwarning(TEXT["update_check_failed"], TEXT["update_not_configured"])
-            self.log(TEXT["update_not_configured"])
-            return
-        self._start_update_check(notify_no_update=True, show_errors=True, show_available_dialog=True)
-
-    def open_update_link(self) -> None:
-        if not self.latest_update_url:
-            messagebox.showwarning(TEXT["update_open_failed"], TEXT["update_link_missing"])
-            self.log(TEXT["update_link_missing"])
-            return
-        try:
-            webbrowser.open(self.latest_update_url)
-        except Exception as exc:
-            messagebox.showerror(TEXT["update_open_failed"], str(exc))
-            self.log(f"{TEXT['update_open_failed']}: {exc}")
-            return
-        self.log(TEXT["update_log_open"] + self.latest_update_url)
-
     def test_upstream(self) -> None:
         self.status_var.set(TEXT["upstream_test_running"])
         self._run_http_action(
@@ -906,109 +615,6 @@ class AdapterWindow:
         if not silent:
             self.log("\u5df2\u540c\u6b65\u914d\u7f6e\u5230\u8fd0\u884c\u4e2d\u670d\u52a1\u3002")
         return True
-
-    def _start_update_check(
-        self,
-        notify_no_update: bool,
-        show_errors: bool,
-        show_available_dialog: bool,
-    ) -> None:
-        if self.update_check_in_progress:
-            self.log(TEXT["update_check_running"])
-            return
-
-        self.update_check_in_progress = True
-        self.update_status_var.set(TEXT["update_status_checking"])
-        self.log(f"{TEXT['check_update']}: {self.update_source_url}")
-
-        def worker() -> None:
-            try:
-                with httpx.Client(timeout=UPDATE_TIMEOUT_SECONDS, follow_redirects=True) as client:
-                    client.headers.update({"User-Agent": f"{APP_NAME}/{APP_VERSION}"})
-                    latest = _find_latest_quark_candidate(self.update_source_url, client)
-                    if latest is None:
-                        response = client.get(self.update_source_url)
-                        response.raise_for_status()
-                        latest = _find_latest_version_candidate(response.text, str(response.url))
-                if latest is None:
-                    self.root.after(
-                        0,
-                        lambda: self._finish_update_check_no_entry(
-                            notify_no_update=notify_no_update,
-                            show_errors=show_errors,
-                        ),
-                    )
-                    return
-
-                latest_version = latest["version"]
-                assert isinstance(latest_version, tuple)
-                assert isinstance(latest["version_text"], str)
-                assert isinstance(latest["url"], str)
-
-                if _version_sort_key(latest_version) > _version_sort_key(APP_VERSION_TUPLE):
-                    self.root.after(
-                        0,
-                        lambda: self._finish_update_check_found(
-                            latest["version_text"],
-                            latest["url"],
-                            notify_dialog=show_available_dialog,
-                        ),
-                    )
-                    return
-
-                self.root.after(
-                    0,
-                    lambda: self._finish_update_check_latest(notify_user=notify_no_update),
-                )
-            except Exception as exc:
-                self.root.after(
-                    0,
-                    lambda: self._finish_update_check_failed(str(exc), show_message=show_errors),
-                )
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _finish_update_check_found(self, version_text: str, url: str, notify_dialog: bool) -> None:
-        self.update_check_in_progress = False
-        self.latest_update_version_text = version_text
-        self.latest_update_url = url
-        self.update_status_var.set(TEXT["update_status_found"] + version_text)
-        self.log(f"{TEXT['update_log_found']} {version_text} -> {url}")
-        clipboard_ok = self._copy_to_clipboard(url)
-        if notify_dialog:
-            clipboard_suffix = TEXT["update_clipboard_suffix"] if clipboard_ok else ""
-            messagebox.showinfo(
-                TEXT["update_available"],
-                TEXT["update_prompt"].format(
-                    current=APP_VERSION,
-                    latest=version_text,
-                    url=url,
-                    clipboard_suffix=clipboard_suffix,
-                ),
-            )
-
-    def _finish_update_check_latest(self, notify_user: bool) -> None:
-        self.update_check_in_progress = False
-        self.update_status_var.set(TEXT["update_status_latest"])
-        self.log(TEXT["update_log_latest"])
-        if notify_user:
-            messagebox.showinfo(TEXT["update_latest"], TEXT["update_log_latest"])
-
-    def _finish_update_check_no_entry(self, notify_no_update: bool, show_errors: bool) -> None:
-        self.update_check_in_progress = False
-        self.update_status_var.set(TEXT["update_status_no_entry"])
-        self.log(TEXT["update_none_found"])
-        if show_errors:
-            messagebox.showwarning(TEXT["update_check_failed"], TEXT["update_none_found"])
-        elif notify_no_update:
-            messagebox.showinfo(TEXT["update_latest"], TEXT["update_none_found"])
-
-    def _finish_update_check_failed(self, detail: str, show_message: bool) -> None:
-        self.update_check_in_progress = False
-        self.update_status_var.set(TEXT["update_status_failed"])
-        self.log(f"{TEXT['update_check_failed']}: {detail}")
-        if show_message:
-            messagebox.showerror(TEXT["update_check_failed"], detail)
 
     def _handle_upstream_test_result(self, ok: bool, status_code: int | None, body: str) -> None:
         if ok:
